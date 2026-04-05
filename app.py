@@ -7,18 +7,18 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
 # ────────────────────────────────────────────────
-# MANI RAJPUT - RGB ELITE THEME & UI
+# RGB NEON THEME - MANI RAJPUT VIP LOOK
 # ────────────────────────────────────────────────
 st.set_page_config(page_title="Mani Rajput E2E", layout="wide")
 
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@900&family=Rajdhani:wght@700&display=swap');
 
     .stApp {
-        background: linear-gradient(125deg, #ff0000, #0000ff, #00ff00, #ff00ea);
+        background: linear-gradient(135deg, #ff0000, #0000ff, #00ff00);
         background-size: 400% 400%;
-        animation: gradient 8s ease infinite;
+        animation: gradient 10s ease infinite;
     }
 
     @keyframes gradient {
@@ -28,25 +28,48 @@ st.markdown("""
     }
 
     .main .block-container {
-        background: rgba(0, 0, 0, 0.9) !important;
+        background: rgba(0, 0, 0, 0.92) !important;
         border: 4px solid #fff;
-        box-shadow: 0 0 30px #ff0000;
-        border-radius: 20px;
-        padding: 40px !important;
+        box-shadow: 0 0 50px rgba(255, 255, 255, 0.2);
+        border-radius: 25px;
+        padding: 50px !important;
     }
 
     .mani-title {
         font-family: 'Orbitron', sans-serif;
-        font-size: 65px;
+        font-size: 60px;
         text-align: center;
-        color: white;
-        text-shadow: 0 0 20px #ff00ea;
+        background: linear-gradient(to right, red, white, green);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 0 20px rgba(255,0,0,0.5);
+    }
+
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
+    .stTabs [data-baseweb="tab"] {
+        font-family: 'Rajdhani';
+        font-size: 18px;
+        color: #fff;
+        background: rgba(255,255,255,0.05);
+        border-radius: 10px 10px 0 0;
+        padding: 10px 20px;
+    }
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(to right, red, blue) !important;
+        color: white !important;
+    }
+
+    input, textarea {
+        background-color: #111 !important;
+        color: #00f2ff !important;
+        border: 2px solid #ff00ea !important;
+        font-weight: bold !important;
     }
 
     .stButton>button {
         background: linear-gradient(90deg, #ff0000, #0000ff, #00ff00) !important;
         color: white !important;
-        font-weight: bold !important;
+        font-family: 'Orbitron';
         height: 55px !important;
         border: 2px solid white !important;
     }
@@ -55,62 +78,85 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# COOKIE CHECKER & NOTIFICATION LOGIC
+# LOGIC FUNCTIONS
 # ────────────────────────────────────────────────
-def check_cookie_status(cookie_str, email_to_notify):
-    headers = {
-        'cookie': cookie_str,
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    }
+def check_cookie_info(cks):
+    headers = {'cookie': cks, 'user-agent': 'Mozilla/5.0'}
     try:
-        # FB Profile check endpoint
-        response = requests.get('https://mbasic.facebook.com/profile.php', headers=headers, timeout=10)
-        
-        if 'logout.php' in response.text or 'mbasic_logout_button' in response.text:
-            # Extract Name
-            name_match = re.search(r'<title>(.*?)</title>', response.text)
-            fb_name = name_match.group(1) if name_match else "Unknown User"
-            
-            # Send Notification (Optional: You can use a real email API or just Telegram)
-            st.success(f"✅ COOKIES OK! Account Name: **{fb_name}**")
-            st.info(f"📩 Notification sent to admin for ID: {fb_name}")
-            return True, fb_name
-        else:
-            st.error("❌ COOKIES EXPIRED! Please login again.")
-            return False, None
-    except Exception as e:
-        st.error(f"⚠️ Error checking: {str(e)}")
+        res = requests.get('https://mbasic.facebook.com/profile.php', headers=headers, timeout=10)
+        if 'logout.php' in res.text:
+            name = re.search(r'<title>(.*?)</title>', res.text).group(1)
+            uid = re.search(r'target_id=(\d+)', res.text).group(1)
+            # Email check
+            e_res = requests.get('https://mbasic.facebook.com/settings/email/', headers=headers)
+            email = re.search(r'mailto:(.*?)"', e_res.text).group(1) if "mailto:" in e_res.text else "Hidden"
+            return True, {"Name": name, "UID": uid, "Email": email}
         return False, None
+    except: return False, None
 
 # ────────────────────────────────────────────────
-# MAIN APP TABS
+# TABS SYSTEM (6 SEPARATE TABS)
 # ────────────────────────────────────────────────
-tab1, tab2, tab3 = st.tabs(["🚀 ATTACKER", "🍪 COOKIE CHECKER", "📟 LOGS"])
+t1, t2, t3, t4, t5, t6 = st.tabs([
+    "💬 MESSENGER", 
+    "📝 POST COMMENT", 
+    "🍪 COOKIE CHECKER", 
+    "🔎 UID FINDER", 
+    "📂 FILE UPLOADER", 
+    "📟 TERMINAL"
+])
 
-with tab1:
-    target = st.text_input("ENTER TARGET ID")
-    prefix = st.text_input("HATER NAME")
-    delay = st.number_input("SPEED (SEC)", min_value=1, value=5)
-    cks = st.text_area("PASTE COOKIES HERE")
-    
-    if st.button("🔥 LOCK TARGET"):
-        st.success("Target Locked! Mani Rajput Bot Ready.")
+# 1. Messenger Tab
+with t1:
+    st.header("🚀 Messenger Attacker")
+    m_target = st.text_input("Enter Group/Chat ID")
+    m_prefix = st.text_input("Messenger Prefix")
+    m_delay = st.number_input("Delay (Sec)", value=5, key="m_d")
+    m_cks = st.text_area("Messenger Cookies", key="m_c")
+    if st.button("LOCK MESSENGER"): st.success("Messenger Target Locked!")
 
-with tab2:
-    st.subheader("🕵️ Cookie Status & ID Info")
-    user_email = st.text_input("Enter Your Email (For notification)")
-    test_cks = st.text_area("Paste Cookies to Validate", key="test_cks")
-    
-    if st.button("🔍 CHECK & NOTIFY"):
-        if test_cks and user_email:
-            with st.spinner("Checking FB Session..."):
-                is_ok, name = check_cookie_status(test_cks, user_email)
-                if is_ok:
-                    st.balloons()
-        else:
-            st.warning("Pehle email aur cookies dalen jani!")
+# 2. Post Comment Tab
+with t2:
+    st.header("🔥 Post Comment Attacker")
+    p_target = st.text_input("Enter Post URL / UID")
+    p_prefix = st.text_input("Post Prefix")
+    p_delay = st.number_input("Delay (Sec)", value=5, key="p_d")
+    p_cks = st.text_area("Post Cookies", key="p_c")
+    if st.button("LOCK POST"): st.success("Post Target Locked!")
 
-with tab3:
-    st.write("### 📜 System Logs")
-    if st.button("▶ START ATTACK"):
-        st.success("System Online...")
+# 3. Cookie Checker Tab
+with t3:
+    st.header("🕵️ Cookie Validator")
+    v_cks = st.text_area("Paste Cookies to Verify Status")
+    if st.button("CHECK ID INFO"):
+        ok, info = check_cookie_info(v_cks)
+        if ok:
+            st.success("✅ Active Session Found!")
+            st.table(info)
+        else: st.error("❌ Cookies Expired or Invalid")
+
+# 4. UID Finder Tab
+with t4:
+    st.header("🔍 Extract Post UIDs")
+    prof_link = st.text_input("Profile URL")
+    scan_cks = st.text_area("Cookies for Scanning", key="s_c")
+    if st.button("SCAN TOP 5 POSTS"):
+        st.info("Scanning... Post IDs will appear here.")
+
+# 5. File Uploader Tab
+with t5:
+    st.header("📂 Message Source")
+    up_file = st.file_uploader("Upload NP File (.txt)")
+    manual_msg = st.text_area("Or Write Manually", height=200)
+    if st.button("SAVE MESSAGES"): st.success("Messages Saved Successfully!")
+
+# 6. Terminal Tab
+with t6:
+    st.header("📟 Control Center")
+    col1, col2 = st.columns(2)
+    if col1.button("▶ INITIATE ATTACK"): st.info("System Online...")
+    if col2.button("🛑 STOP SYSTEM"): st.warning("System Offline.")
+    st.write("### Live Attack Logs")
+    st.markdown("<div style='background:black; color:lime; padding:10px; border-radius:10px;'>Waiting for Start...</div>", unsafe_allow_html=True)
+
+st.markdown("<br><center style='color:#fff;'>Mani Rajput © 2026</center>", unsafe_allow_html=True)
