@@ -8,214 +8,162 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 import requests
+import re
 
 # ────────────────────────────────────────────────
-# DATABASE & AUTH SYSTEM
-# ────────────────────────────────────────────────
-def init_db():
-    conn = sqlite3.connect('users.db', check_same_thread=False)
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, 
-                  chat_id TEXT, post_url TEXT, name_prefix TEXT, delay INTEGER, cookies TEXT, messages TEXT)''')
-    conn.commit()
-    conn.close()
-
-init_db()
-
-# ────────────────────────────────────────────────
-# ADVANCED UI & NEON ANIME THEME
+# PRO ULTRA NEON THEME (Mani Rajput Special)
 # ────────────────────────────────────────────────
 st.set_page_config(page_title="Mani Rajput E2E", page_icon="🔥", layout="wide")
 
 custom_css = """
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Rajdhani:wght@600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@900&family=Permanent+Marker&display=swap');
 
     .stApp {
-        background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), 
-                    url('https://images.alphacoders.com/131/1311053.png');
-        background-size: cover;
-        background-attachment: fixed;
+        background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), 
+                    url('https://images8.alphacoders.com/105/1053155.jpg');
+        background-size: cover !important;
+        background-position: center;
     }
 
-    h1, h2, h3, label, .stMetric {
-        font-family: 'Orbitron', sans-serif;
-        color: #00f2ff !important;
-        text-shadow: 2px 2px 10px #00f2ff;
-        font-weight: 900 !important;
-        text-transform: uppercase;
-    }
-
-    .main-header {
-        text-align: center;
-        padding: 30px;
-        border: 4px solid #ff00ea;
+    .main .block-container {
+        background: rgba(10, 10, 20, 0.9);
+        border: 3px solid #00f2ff;
+        box-shadow: 0 0 50px rgba(0, 242, 255, 0.3);
         border-radius: 30px;
-        background: rgba(0, 0, 0, 0.8);
-        box-shadow: 0 0 30px #ff00ea;
-        margin-bottom: 25px;
+        padding: 50px !important;
     }
 
-    .mani-name {
-        font-size: 50px;
-        color: #fff;
-        text-shadow: 0 0 10px #ff00ea, 0 0 20px #ff00ea, 0 0 40px #ff00ea;
+    .mani-title {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 70px;
+        text-align: center;
+        background: linear-gradient(to right, #ff00ea, #00f2ff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 5px 5px 20px rgba(255, 0, 234, 0.5);
+        margin-bottom: 5px;
     }
 
     .stButton>button {
-        background: linear-gradient(90deg, #ff00ea, #00f2ff);
+        background: linear-gradient(90deg, #00f2ff, #ff00ea);
         color: white !important;
-        font-weight: bold;
-        font-size: 20px;
-        border-radius: 15px;
         border: none;
-        box-shadow: 0 5px 15px rgba(255, 0, 234, 0.4);
-        transition: 0.3s;
-    }
-
-    .stButton>button:hover {
-        transform: scale(1.05);
-        box-shadow: 0 0 30px #00f2ff;
-    }
-
-    .console-box {
-        background: rgba(0, 0, 0, 0.9);
-        color: #0f0;
-        padding: 20px;
         border-radius: 15px;
-        border: 2px solid #00f2ff;
-        font-family: 'Courier New', monospace;
-        font-size: 16px;
         font-weight: bold;
+        font-family: 'Orbitron';
+        height: 55px;
+        box-shadow: 0 0 20px #ff00ea;
     }
+
+    .stTextInput>div>div>input {
+        background: rgba(255,255,255,0.05) !important;
+        color: #00f2ff !important;
+        border: 2px solid #ff00ea !important;
+    }
+    
+    .stTabs [data-baseweb="tab-list"] { background: transparent; }
+    .stTabs [data-baseweb="tab"] { color: #fff; font-family: 'Orbitron'; font-size: 18px; }
+    .stTabs [aria-selected="true"] { color: #ff00ea !important; border-bottom-color: #ff00ea !important; }
 </style>
 """
 st.markdown(custom_css, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# AUTOMATION ENGINE (Universal: Chat + Post)
+# LOGIC & EXTRACTION
 # ────────────────────────────────────────────────
-class BotState:
-    def __init__(self):
-        self.running = False
-        self.logs = []
-        self.count = 0
+if 'bot_state' not in st.session_state:
+    st.session_state.bot_state = {'running': False, 'logs': [], 'count': 0}
 
-if 'bot_state' not in st.session_state: st.session_state.bot_state = BotState()
-
-def run_attack(config, mode):
-    state = st.session_state.bot_state
+def extract_post_uids(profile_url, cookies):
     options = Options()
     options.add_argument('--headless=new')
     options.add_argument('--no-sandbox')
     driver = webdriver.Chrome(options=options)
+    post_ids = []
     
     try:
         driver.get("https://www.facebook.com")
-        for c in config['cookies'].split(';'):
-            if '=' in c:
-                name, val = c.strip().split('=', 1)
-                driver.add_cookie({'name': name, 'value': val, 'domain': '.facebook.com'})
+        if cookies:
+            for c in cookies.split(';'):
+                if '=' in c:
+                    name, val = c.strip().split('=', 1)
+                    driver.add_cookie({'name': name, 'value': val, 'domain': '.facebook.com'})
         
-        target = config['chat_id'] if mode == "Messenger" else config['post_url']
-        driver.get(target)
-        time.sleep(10)
+        driver.get(profile_url)
+        time.sleep(5)
         
-        msgs = config['messages'].split('\n')
-        i = 0
-        while state.running:
-            text = f"{config['prefix']} {msgs[i % len(msgs)]}"
+        # Finding post links/IDs (Facebook mobile or desktop structures)
+        elements = driver.find_elements(By.XPATH, "//a[contains(@href, '/posts/') or contains(@href, '/photos/') or contains(@href, 'permalink')]")
+        
+        for el in elements:
+            href = el.get_attribute("href")
+            # Cleaning the URL to get ID
+            match = re.search(r'(\d{10,})', href)
+            if match and match.group(1) not in post_ids:
+                post_ids.append(match.group(1))
+            if len(post_ids) >= 5: break
             
-            if mode == "Messenger":
-                driver.execute_script("let e = document.querySelector('div[role=\"textbox\"]'); if(e){ e.focus(); document.execCommand('insertText', false, arguments[0]); }", text)
-                time.sleep(1)
-                driver.execute_script("let b = document.querySelector('div[aria-label=\"Press enter to send\"]'); if(b) b.click();")
-            else: # Post Comment Mode
-                driver.execute_script("let e = document.querySelector('div[aria-label=\"Write a comment...\"], textarea'); if(e){ e.focus(); document.execCommand('insertText', false, arguments[0]); }", text)
-                time.sleep(1)
-                driver.execute_script("let b = document.querySelector('div[aria-label=\"Comment\"]'); if(b) b.click();")
-            
-            state.count += 1
-            state.logs.append(f"🔥 [{mode}] Sent: {text[:20]}...")
-            i += 1
-            time.sleep(config['delay'])
+        return post_ids
     except Exception as e:
-        state.logs.append(f"❌ Error: {str(e)}")
+        return [f"Error: {str(e)}"]
     finally:
         driver.quit()
-        state.running = False
 
 # ────────────────────────────────────────────────
-# MAIN UI
+# UI INTERFACE
 # ────────────────────────────────────────────────
-st.markdown("<div class='main-header'><div class='mani-name'>Mani Rajput</div><p style='color:#00f2ff'>8K ANIME EDITION - FB MULTI TOOL</p></div>", unsafe_allow_html=True)
+st.markdown("<h1 class='mani-title'>Mani Rajput</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; color:#00f2ff; font-family:Orbitron;'>MULTIFUNCTIONAL FB ATTACKER</p>", unsafe_allow_html=True)
 
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
+tab1, tab2, tab3 = st.tabs(["🚀 ATTACKER", "💎 POST UID FINDER", "📟 LOGS"])
 
-if not st.session_state.logged_in:
-    u = st.text_input("Username")
-    p = st.text_input("Password", type="password")
-    if st.button("Enter The Matrix"):
-        if u and p: 
-            st.session_state.logged_in = True
-            st.rerun()
-else:
-    # Sidebar - Extra Tools
-    with st.sidebar:
-        st.header("🛠 TOOLS")
-        if st.button("Logout"):
-            st.session_state.logged_in = False
-            st.rerun()
-        
-        st.markdown("---")
-        st.subheader("🍪 Cookie Extractor")
-        st.info("Direct Login system under maintenance. Use Laptop/Kiwi for now.")
+with tab1:
+    mode = st.radio("SELECT TARGET", ["Messenger", "Post Comment"])
+    target = st.text_input("Enter Target Link / Post ID")
+    prefix = st.text_input("Hater Name / Prefix")
+    delay = st.number_input("Speed (Delay Seconds)", min_value=1, value=5)
+    
+    st.markdown("### 📜 Message Source")
+    file = st.file_uploader("Upload NP File (.txt)")
+    manual = st.text_area("Or Write Manually")
+    msgs = file.read().decode() if file else manual
+    
+    cks = st.text_area("Cookies (Required for Post/Extraction)")
+    
+    if st.button("🔥 LOCK TARGET"):
+        st.session_state.config = {'target': target, 'prefix': prefix, 'delay': delay, 'messages': msgs, 'cookies': cks}
+        st.success("Target Locked! Ready for Attack.")
 
-    # Tabs
-    t1, t2 = st.tabs(["🚀 SETTINGS", "📟 TERMINAL"])
-
-    with t1:
-        mode = st.radio("Choose Target Mode", ["Messenger", "Post Comment"])
-        cid = st.text_input("Target (Chat ID or Post URL)")
-        pre = st.text_input("Hater Name / Prefix")
-        dly = st.number_input("Delay (Seconds)", min_value=1, value=5)
-        
-        st.markdown("### 📝 MESSAGES")
-        file = st.file_uploader("Upload NP File (.txt)", type="txt")
-        manual_msg = st.text_area("Or Type Manually (one per line)")
-        
-        final_msgs = ""
-        if file:
-            final_msgs = file.read().decode("utf-8")
+with tab2:
+    st.subheader("🕵️ Target Profile Post Extractor")
+    prof_url = st.text_input("Paste Profile URL (e.g. facebook.com/mani.rajput)")
+    cookie_for_ext = st.text_area("Paste Cookies (Required to see private/protected posts)", key="ext_cookie")
+    
+    if st.button("Extract Top 5 Post IDs"):
+        if prof_url and cookie_for_ext:
+            with st.spinner("Scanning Profile..."):
+                results = extract_post_uids(prof_url, cookie_for_ext)
+                if results:
+                    st.write("### ✅ Top 5 Posts Found:")
+                    for r in results:
+                        st.code(r)
+                else:
+                    st.error("No posts found. Check cookies or link.")
         else:
-            final_msgs = manual_msg
-            
-        cks = st.text_area("Paste Cookies Here")
-        
-        if st.button("Save & Prepare Attack"):
-            st.session_state.config = {
-                'chat_id': cid if mode == "Messenger" else cid,
-                'post_url': cid if mode == "Post Comment" else "",
-                'prefix': pre,
-                'delay': dly,
-                'messages': final_msgs,
-                'cookies': cks
-            }
-            st.success("Configuration Saved!")
+            st.warning("Please provide both Profile URL and Cookies.")
 
-    with t2:
-        state = st.session_state.bot_state
-        if st.button("▶ START ATTACK", disabled=state.running):
-            state.running = True
-            threading.Thread(target=run_attack, args=(st.session_state.config, mode)).start()
-            st.rerun()
-        
-        if st.button("🛑 STOP ATTACK", disabled=not state.running):
-            state.running = False
-            st.rerun()
-            
-        st.metric("SUCCESSFUL HITS", state.count)
-        log_txt = "\n".join(state.logs[-15:])
-        st.markdown(f"<div class='console-box'>{log_txt}</div>", unsafe_allow_html=True)
+with tab3:
+    state = st.session_state.bot_state
+    c1, c2 = st.columns(2)
+    if c1.button("▶ START SYSTEM"):
+        # Yahan automation function call hoga (pichle code wala logic)
+        state['running'] = True
+        st.info("System Initiated...")
+    if c2.button("🛑 KILL SYSTEM"):
+        state['running'] = False
+        st.error("System Stopped.")
+    
+    st.metric("ATTACK COUNT", state['count'])
+    st.text_area("Console", value="\n".join(state['logs'][-10:]), height=200)
+
